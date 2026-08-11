@@ -1,0 +1,208 @@
+/* ==========================================================================
+   TMRD Innovation Week — motion primitives & atmosphere layers
+   ========================================================================== */
+
+/* ---------- ambient canvas ---------- */
+
+.ambient-field {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+main,
+.footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- cursor light (fine pointers only) ---------- */
+
+.cursor-light {
+  position: fixed;
+  top: -280px;
+  left: -280px;
+  width: 560px;
+  height: 560px;
+  border-radius: 50%;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle,
+    rgba(85, 222, 130, 0.05) 0%,
+    rgba(60, 174, 206, 0.04) 38%,
+    transparent 68%
+  );
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+
+/* ---------- film grain ---------- */
+
+.grain {
+  position: fixed;
+  inset: -60px;
+  z-index: var(--z-grain);
+  pointer-events: none;
+  opacity: 0.055;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='280' height='280' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 280px 280px;
+  animation: grain-shift 1.4s steps(4) infinite;
+}
+
+@keyframes grain-shift {
+  0% {
+    background-position: 0 0;
+  }
+  25% {
+    background-position: 42px -28px;
+  }
+  50% {
+    background-position: -30px 46px;
+  }
+  75% {
+    background-position: 26px 18px;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* ---------- scroll progress ---------- */
+
+.scroll-progress {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  z-index: var(--z-progress);
+  background: var(--gradient-brand);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  pointer-events: none;
+}
+
+/* ---------- masked headline reveals ---------- */
+
+.rt__line {
+  display: block;
+}
+
+.rt__mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+  margin-right: 0.24em;
+}
+
+.rt__mask:last-child {
+  margin-right: 0;
+}
+
+.rt__word {
+  display: inline-block;
+  will-change: transform;
+}
+
+/* ---------- connection arcs ---------- */
+
+.connection-arcs {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.connection-arcs__spin {
+  transform-origin: 50% 50%;
+  animation: arcs-sway 46s ease-in-out infinite alternate;
+}
+
+@keyframes arcs-sway {
+  from {
+    transform: rotate(-1.4deg) translateY(0);
+  }
+  to {
+    transform: rotate(1.6deg) translateY(-12px);
+  }
+}
+
+.arc-mote {
+  filter: drop-shadow(0 0 6px rgba(85, 222, 130, 0.9));
+}
+
+.arc-mote--blue {
+  filter: drop-shadow(0 0 6px rgba(60, 174, 206, 0.9));
+}
+
+/* ---------- reference comparison overlay (dev only) ---------- */
+
+.ref-overlay {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 1600px;
+  z-index: var(--z-ref);
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.ref-overlay img {
+  width: 100%;
+}
+
+.ref-overlay__chip {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: calc(var(--z-ref) + 1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(2, 8, 16, 0.9);
+  border: 1px solid var(--tmrd-border);
+  font-size: 12px;
+  color: var(--tmrd-muted);
+}
+
+.ref-overlay__chip button {
+  padding: 4px 10px;
+  border: 1px solid var(--tmrd-border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--tmrd-white);
+}
+
+/* ---------- reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .grain,
+  .text-gradient,
+  .connection-arcs__spin {
+    animation: none !important;
+  }
+
+  .cursor-light {
+    display: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

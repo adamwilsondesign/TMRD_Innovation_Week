@@ -1,0 +1,714 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>TMRD asset generator</title>
+<style>body{background:#111;margin:0}canvas{display:block}</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+/* ============================================================
+   TMRD Innovation Week — procedural artwork generator.
+   Run offline through scripts/generate-assets.mjs (Playwright).
+   Every artwork is deterministic (seeded RNG) so regeneration
+   is reproducible. Output is cinematic abstract "photography":
+   light, haze, geometry — no fabricated people or logos.
+   ============================================================ */
+
+const GREEN = '#55DE82';
+const GREEN_DARK = '#006848';
+const BLUE = '#3CAECE';
+const BLUE_DARK = '#00529A';
+const INK = '#020810';
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function rgba(hex, a) {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/* ---------- primitives ---------- */
+
+function fillSky(c, w, h, stops) {
+  const g = c.createLinearGradient(0, 0, 0, h);
+  for (const [t, col] of stops) g.addColorStop(t, col);
+  c.fillStyle = g;
+  c.fillRect(0, 0, w, h);
+}
+
+function glow(c, x, y, r, hex, alpha) {
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, rgba(hex, alpha));
+  g.addColorStop(0.5, rgba(hex, alpha * 0.35));
+  g.addColorStop(1, rgba(hex, 0));
+  c.fillStyle = g;
+  c.fillRect(x - r, y - r, r * 2, r * 2);
+}
+
+function stars(c, w, h, rand, count, maxY, alpha) {
+  for (let i = 0; i < count; i++) {
+    const x = rand() * w, y = rand() * maxY;
+    const r = rand() * 1.1 + 0.25;
+    c.fillStyle = `rgba(220,235,240,${alpha * (0.3 + rand() * 0.7)})`;
+    c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+  }
+}
+
+function bokeh(c, w, h, rand, opts) {
+  const { count, palette, rmin, rmax, ymin = 0, ymax = 1, alpha = 0.5 } = opts;
+  for (let i = 0; i < count; i++) {
+    const x = rand() * w;
+    const y = h * (ymin + rand() * (ymax - ymin));
+    const r = rmin + rand() * (rmax - rmin);
+    const col = palette[Math.floor(rand() * palette.length)];
+    const a = alpha * (0.25 + rand() * 0.75);
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, rgba(col, a));
+    g.addColorStop(0.75, rgba(col, a * 0.5));
+    g.addColorStop(1, rgba(col, 0));
+    c.fillStyle = g;
+    c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+  }
+}
+
+function skylineLayer(c, w, h, rand, opts) {
+  const {
+    baseY, minH, maxH, minW, maxW, color,
+    windowAlpha = 0, windowPalette = ['#cfe8d8'], gap = 0,
+  } = opts;
+  let x = -20;
+  c.fillStyle = color;
+  const buildings = [];
+  while (x < w + 20) {
+    const bw = minW + rand() * (maxW - minW);
+    const bh = minH + rand() * (maxH - minH);
+    buildings.push([x, baseY - bh, bw, bh]);
+    c.fillRect(x, baseY - bh, bw, bh + 4);
+    // occasional rooftop detail
+    if (rand() < 0.3) c.fillRect(x + bw * 0.3, baseY - bh - bh * 0.08, bw * 0.12, bh * 0.08 + 2);
+    if (rand() < 0.18) { // antenna
+      c.fillRect(x + bw * 0.5, baseY - bh - 26, 2, 26);
+    }
+    x += bw + gap * rand();
+  }
+  if (windowAlpha > 0) {
+    for (const [bx, by, bw, bh] of buildings) {
+      const cols = Math.max(2, Math.floor(bw / 14));
+      const rows = Math.max(3, Math.floor(bh / 16));
+      for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+          if (rand() > 0.24) continue;
+          const wx = bx + 4 + (i * (bw - 8)) / cols;
+          const wy = by + 6 + (j * (bh - 12)) / rows;
+          const col = windowPalette[Math.floor(rand() * windowPalette.length)];
+          c.fillStyle = rgba(col, windowAlpha * (0.35 + rand() * 0.65));
+          c.fillRect(wx, wy, 2.4, 3.4);
+        }
+      }
+    }
+  }
+}
+
+/** Mirror everything above horizonY into rippled water below it. */
+function waterReflection(c, w, h, horizonY, rand, darken = 0.55) {
+  const src = document.createElement('canvas');
+  src.width = w; src.height = horizonY;
+  src.getContext('2d').drawImage(canvas, 0, 0, w, horizonY, 0, 0, w, horizonY);
+  const depth = h - horizonY;
+  for (let y = 0; y < depth; y++) {
+    const t = y / depth;
+    const srcY = Math.max(0, horizonY - 1 - y * 0.9);
+    const off = Math.sin(y * 0.16 + rand() * 0.35) * (1.5 + t * 7) * (0.4 + rand() * 0.6);
+    c.globalAlpha = Math.max(0, 0.5 - t * 0.42);
+    c.drawImage(src, 0, srcY, w, 1.5, off, horizonY + y, w, 1.6);
+  }
+  c.globalAlpha = 1;
+  const g = c.createLinearGradient(0, horizonY, 0, h);
+  g.addColorStop(0, rgba(INK, darken * 0.4));
+  g.addColorStop(1, rgba(INK, darken + 0.3));
+  c.fillStyle = g;
+  c.fillRect(0, horizonY, w, depth);
+  // sparkle highlights on the water
+  for (let i = 0; i < w / 6; i++) {
+    const x = rand() * w;
+    const y = horizonY + Math.pow(rand(), 1.6) * depth;
+    const col = rand() < 0.5 ? GREEN : BLUE;
+    c.fillStyle = rgba(col, 0.05 + rand() * 0.12);
+    c.fillRect(x, y, 6 + rand() * 26, 1);
+  }
+}
+
+function hazeBand(c, w, y, spread, hex, alpha) {
+  const g = c.createLinearGradient(0, y - spread, 0, y + spread);
+  g.addColorStop(0, rgba(hex, 0));
+  g.addColorStop(0.5, rgba(hex, alpha));
+  g.addColorStop(1, rgba(hex, 0));
+  c.fillStyle = g;
+  c.fillRect(0, y - spread, w, spread * 2);
+}
+
+function grain(c, w, h, alpha) {
+  const id = c.getImageData(0, 0, w, h);
+  const d = id.data;
+  const r = mulberry32(987654321);
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (r() - 0.5) * 255 * alpha;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  c.putImageData(id, 0, 0);
+}
+
+function vignette(c, w, h, strength) {
+  const g = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, `rgba(0,4,10,${strength})`);
+  c.fillStyle = g;
+  c.fillRect(0, 0, w, h);
+}
+
+function lightStreaks(c, w, h, rand, opts) {
+  const { count, palette, angle = -0.5, len = 0.5, width = 2.4, alpha = 0.5 } = opts;
+  c.save();
+  c.lineCap = 'round';
+  for (let i = 0; i < count; i++) {
+    const x = rand() * w, y = rand() * h;
+    const l = (0.2 + rand() * 0.8) * len * w;
+    const col = palette[Math.floor(rand() * palette.length)];
+    const a = angle + (rand() - 0.5) * 0.14;
+    const g = c.createLinearGradient(x, y, x + Math.cos(a) * l, y + Math.sin(a) * l);
+    g.addColorStop(0, rgba(col, 0));
+    g.addColorStop(0.6, rgba(col, alpha * (0.3 + rand() * 0.7)));
+    g.addColorStop(1, rgba(col, 0));
+    c.strokeStyle = g;
+    c.lineWidth = width * (0.4 + rand() * 1.2);
+    c.beginPath();
+    c.moveTo(x, y);
+    c.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
+    c.stroke();
+  }
+  c.restore();
+}
+
+function network(c, w, h, rand, opts) {
+  const { count, palette, linkDist, alpha = 0.5, nodeR = 2.4, depth = false } = opts;
+  const pts = [];
+  for (let i = 0; i < count; i++) {
+    const z = depth ? 0.35 + rand() * 0.65 : 1;
+    pts.push({ x: rand() * w, y: rand() * h, z });
+  }
+  for (let i = 0; i < pts.length; i++) {
+    for (let j = i + 1; j < pts.length; j++) {
+      const a = pts[i], b = pts[j];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < linkDist) {
+        const col = palette[(i + j) % palette.length];
+        c.strokeStyle = rgba(col, alpha * (1 - d / linkDist) * 0.5 * a.z * b.z);
+        c.lineWidth = 1;
+        c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
+      }
+    }
+  }
+  for (const p of pts) {
+    const col = palette[Math.floor(rand() * palette.length)];
+    glow(c, p.x, p.y, nodeR * 7 * p.z, col, 0.25 * p.z);
+    c.fillStyle = rgba(col, 0.85 * p.z);
+    c.beginPath(); c.arc(p.x, p.y, nodeR * p.z, 0, 7); c.fill();
+  }
+}
+
+function pulseWave(c, w, h, rand, opts) {
+  const { y, amp, palette, alpha = 0.85, spikes = 3, lw = 3 } = opts;
+  const col = palette[0];
+  c.save();
+  c.shadowColor = rgba(col, 0.9);
+  c.shadowBlur = 26;
+  c.strokeStyle = rgba(col, alpha);
+  c.lineWidth = lw;
+  c.lineJoin = 'round';
+  c.beginPath();
+  let x = 0;
+  c.moveTo(0, y);
+  const seg = w / (spikes * 8);
+  while (x < w) {
+    if (rand() < 0.32 && x > w * 0.08 && x < w * 0.9) {
+      // heartbeat spike
+      c.lineTo(x + seg * 0.5, y - amp * (0.6 + rand() * 0.5));
+      c.lineTo(x + seg * 0.9, y + amp * (0.35 + rand() * 0.35));
+      c.lineTo(x + seg * 1.3, y);
+      x += seg * 1.6;
+    } else {
+      c.lineTo(x + seg, y + (rand() - 0.5) * amp * 0.12);
+      x += seg;
+    }
+  }
+  c.stroke();
+  c.restore();
+}
+
+function molecularRings(c, w, h, rand, opts) {
+  const { cx, cy, palette, rings = 4, rmax } = opts;
+  for (let i = 0; i < rings; i++) {
+    const r = rmax * (0.3 + (i / rings) * 0.75);
+    const col = palette[i % palette.length];
+    const tilt = 0.35 + rand() * 0.5;
+    const rot = rand() * Math.PI;
+    c.save();
+    c.translate(cx, cy);
+    c.rotate(rot);
+    c.strokeStyle = rgba(col, 0.4 + rand() * 0.25);
+    c.lineWidth = 1.4;
+    c.beginPath();
+    c.ellipse(0, 0, r, r * tilt, 0, 0, Math.PI * 2);
+    c.stroke();
+    // orbiting nodes
+    const n = 2 + Math.floor(rand() * 3);
+    for (let k = 0; k < n; k++) {
+      const t = rand() * Math.PI * 2;
+      const x = Math.cos(t) * r, y = Math.sin(t) * r * tilt;
+      glow(c, x, y, 22, col, 0.5);
+      c.fillStyle = rgba('#eafff2', 0.9);
+      c.beginPath(); c.arc(x, y, 2.6, 0, 7); c.fill();
+    }
+    c.restore();
+  }
+}
+
+function lightColumns(c, w, h, rand, opts) {
+  const { count, palette, alpha = 0.5 } = opts;
+  const bw = w / count;
+  for (let i = 0; i < count; i++) {
+    const x = i * bw + bw * 0.18;
+    const colH = h * (0.2 + rand() * 0.62);
+    const col = palette[Math.floor(rand() * palette.length)];
+    const g = c.createLinearGradient(0, h, 0, h - colH);
+    g.addColorStop(0, rgba(col, alpha));
+    g.addColorStop(1, rgba(col, 0));
+    c.fillStyle = g;
+    c.fillRect(x, h - colH, bw * 0.64, colH);
+    glow(c, x + bw * 0.32, h - colH, bw * 0.7, col, 0.28);
+  }
+}
+
+function corridorPanels(c, w, h, rand, opts) {
+  const { count, palette } = opts;
+  const vx = w * 0.78, vy = h * 0.46; // vanishing point
+  for (let i = 0; i < count; i++) {
+    const t = i / count;
+    const px = w * 0.06 + t * (vx - w * 0.06) * 0.92;
+    const ph = h * 0.62 * (1 - t * 0.78);
+    const py = vy - ph / 2 + h * 0.06 * t;
+    const col = palette[i % palette.length];
+    const g = c.createLinearGradient(px, py, px, py + ph);
+    g.addColorStop(0, rgba(col, 0.05));
+    g.addColorStop(0.5, rgba(col, 0.4 * (1 - t * 0.5)));
+    g.addColorStop(1, rgba(col, 0.05));
+    c.fillStyle = g;
+    c.fillRect(px, py, Math.max(3, 14 * (1 - t)), ph);
+    glow(c, px, py + ph / 2, 60 * (1 - t) + 16, col, 0.2);
+  }
+}
+
+function convergeBeams(c, w, h, opts) {
+  const { palette, fx = 0.5, fy = 0.52 } = opts;
+  const cx = w * fx, cy = h * fy;
+  const dirs = [
+    [0, h * 0.85], [w, h * 0.9], [-w * 0.1, h * 0.3], [w * 1.1, h * 0.25],
+    [w * 0.2, -h * 0.1], [w * 0.85, -h * 0.08],
+  ];
+  dirs.forEach(([x, y], i) => {
+    const col = palette[i % palette.length];
+    const g = c.createLinearGradient(x, y, cx, cy);
+    g.addColorStop(0, rgba(col, 0));
+    g.addColorStop(1, rgba(col, 0.5));
+    c.strokeStyle = g;
+    c.lineWidth = 2 + (i % 3);
+    c.beginPath(); c.moveTo(x, y);
+    c.quadraticCurveTo((x + cx) / 2 + (i % 2 ? 60 : -60), (y + cy) / 2, cx, cy);
+    c.stroke();
+  });
+  glow(c, cx, cy, Math.min(w, h) * 0.3, palette[0], 0.5);
+  glow(c, cx, cy, Math.min(w, h) * 0.1, '#eafff5', 0.5);
+}
+
+/* ---------- base scene ---------- */
+
+function baseScene(w, h, seed, tint) {
+  canvas.width = w; canvas.height = h;
+  const rand = mulberry32(seed);
+  fillSky(ctx, w, h, [
+    [0, '#01050c'],
+    [0.55, tint === 'green' ? '#03120e' : '#041020'],
+    [1, '#010409'],
+  ]);
+  return rand;
+}
+
+function finish(w, h, g = 0.045, v = 0.5) {
+  vignette(ctx, w, h, v);
+  grain(ctx, w, h, g);
+}
+
+/* ---------- artworks ---------- */
+
+const artworks = {
+
+  'hero-skyline': () => {
+    const w = 2400, h = 1400;
+    const rand = baseScene(w, h, 20270222, 'blue');
+    const horizon = Math.round(h * 0.7);
+    stars(ctx, w, h, rand, 130, horizon * 0.7, 0.5);
+    glow(ctx, w * 0.2, h * 0.62, w * 0.34, GREEN, 0.13);
+    glow(ctx, w * 0.78, h * 0.5, w * 0.4, BLUE, 0.15);
+    glow(ctx, w * 0.55, h * 0.75, w * 0.25, BLUE_DARK, 0.22);
+    // far / mid / near skyline layers
+    skylineLayer(ctx, w, h, rand, {
+      baseY: horizon, minH: 90, maxH: 300, minW: 60, maxW: 150,
+      color: '#04101c', windowAlpha: 0.18, windowPalette: ['#9fd9c9', '#8fc7e0'], gap: 8,
+    });
+    hazeBand(ctx, w, horizon - 130, 170, BLUE_DARK, 0.16);
+    skylineLayer(ctx, w, h, rand, {
+      baseY: horizon, minH: 160, maxH: 520, minW: 90, maxW: 220,
+      color: '#030b14', windowAlpha: 0.32, windowPalette: ['#bde8d4', '#a5d8ea', '#e8f4ee'], gap: 26,
+    });
+    skylineLayer(ctx, w, h, rand, {
+      baseY: horizon + 6, minH: 100, maxH: 260, minW: 140, maxW: 320,
+      color: '#02070d', windowAlpha: 0.4, windowPalette: ['#d5f2e2', '#bfe4f2'], gap: 60,
+    });
+    hazeBand(ctx, w, horizon, 90, GREEN_DARK, 0.12);
+    waterReflection(ctx, w, h, horizon, rand, 0.5);
+    glow(ctx, w * 0.32, horizon + 90, 340, GREEN, 0.1);
+    glow(ctx, w * 0.72, horizon + 140, 420, BLUE, 0.1);
+    finish(w, h, 0.05, 0.55);
+  },
+
+  'district-aerial': () => {
+    const w = 1800, h = 1350;
+    const rand = baseScene(w, h, 813, 'blue');
+    // dark ground with a water inlet on the lower left
+    ctx.fillStyle = '#030910';
+    ctx.fillRect(0, 0, w, h);
+    const water = ctx.createLinearGradient(0, h, w * 0.5, h * 0.4);
+    water.addColorStop(0, '#020e18');
+    water.addColorStop(1, 'rgba(2,14,24,0)');
+    ctx.fillStyle = water;
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.55);
+    ctx.quadraticCurveTo(w * 0.3, h * 0.72, w * 0.16, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fill();
+    // abstract street grid, slightly rotated
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate(-0.16);
+    ctx.translate(-w / 2, -h / 2);
+    for (let i = -4; i < 22; i++) {
+      const x = i * 110 + rand() * 22;
+      const col = rand() < 0.3 ? GREEN : BLUE;
+      const a = 0.05 + rand() * 0.12;
+      ctx.strokeStyle = rgba(col, a);
+      ctx.lineWidth = rand() < 0.14 ? 2.4 : 1;
+      ctx.beginPath(); ctx.moveTo(x, -80); ctx.lineTo(x, h + 80); ctx.stroke();
+    }
+    for (let j = -4; j < 18; j++) {
+      const y = j * 105 + rand() * 22;
+      const col = rand() < 0.3 ? GREEN : BLUE;
+      ctx.strokeStyle = rgba(col, 0.05 + rand() * 0.12);
+      ctx.lineWidth = rand() < 0.14 ? 2.4 : 1;
+      ctx.beginPath(); ctx.moveTo(-80, y); ctx.lineTo(w + 80, y); ctx.stroke();
+    }
+    // city blocks: faint rounded rectangles with lit windows
+    for (let i = 0; i < 120; i++) {
+      const x = rand() * w, y = rand() * h;
+      const bw = 26 + rand() * 78, bh = 22 + rand() * 62;
+      ctx.fillStyle = rgba(rand() < 0.5 ? '#0a1a28' : '#0a2018', 0.55 + rand() * 0.3);
+      ctx.fillRect(x, y, bw, bh);
+      const n = Math.floor(rand() * 7);
+      for (let k = 0; k < n; k++) {
+        ctx.fillStyle = rgba(rand() < 0.4 ? GREEN : BLUE, 0.2 + rand() * 0.5);
+        ctx.fillRect(x + rand() * bw, y + rand() * bh, 2.2, 2.2);
+      }
+    }
+    ctx.restore();
+    glow(ctx, w * 0.3, h * 0.62, 360, GREEN, 0.14);
+    glow(ctx, w * 0.62, h * 0.34, 430, BLUE, 0.16);
+    glow(ctx, w * 0.78, h * 0.75, 300, BLUE_DARK, 0.2);
+    bokeh(ctx, w, h, rand, { count: 40, palette: [GREEN, BLUE, '#e8f4ee'], rmin: 1, rmax: 4, alpha: 0.5 });
+    finish(w, h, 0.05, 0.6);
+  },
+
+  /* --- Built On Each Other pillar windows (square) --- */
+
+  'pillar-collaboration': () => {
+    const w = 1000, h = 1000;
+    const rand = baseScene(w, h, 101, 'green');
+    glow(ctx, w * 0.5, h * 0.52, 430, GREEN_DARK, 0.4);
+    convergeBeams(ctx, w, h, { palette: [GREEN, BLUE, GREEN] });
+    bokeh(ctx, w, h, rand, { count: 26, palette: [GREEN, '#d8ffe9'], rmin: 1.4, rmax: 5, alpha: 0.5 });
+    finish(w, h, 0.05, 0.5);
+  },
+
+  'pillar-acceleration': () => {
+    const w = 1000, h = 1000;
+    const rand = baseScene(w, h, 202, 'blue');
+    glow(ctx, w * 0.5, h * 0.6, 430, BLUE_DARK, 0.45);
+    lightStreaks(ctx, w, h, rand, { count: 42, palette: [BLUE, GREEN, '#bfe9f5'], angle: -1.05, len: 0.5, alpha: 0.6 });
+    glow(ctx, w * 0.55, h * 0.3, 220, BLUE, 0.3);
+    finish(w, h, 0.05, 0.5);
+  },
+
+  'pillar-translation': () => {
+    const w = 1000, h = 1000;
+    const rand = baseScene(w, h, 303, 'green');
+    glow(ctx, w * 0.28, h * 0.5, 320, GREEN_DARK, 0.4);
+    glow(ctx, w * 0.75, h * 0.5, 320, BLUE_DARK, 0.4);
+    pulseWave(ctx, w, h, rand, { y: h * 0.52, amp: 190, palette: [GREEN], spikes: 3, lw: 3.4 });
+    pulseWave(ctx, w, h, mulberry32(304), { y: h * 0.58, amp: 120, palette: [BLUE], alpha: 0.35, spikes: 2, lw: 2 });
+    finish(w, h, 0.05, 0.5);
+  },
+
+  'pillar-momentum': () => {
+    const w = 1000, h = 1000;
+    const rand = baseScene(w, h, 404, 'blue');
+    const horizon = h * 0.66;
+    glow(ctx, w * 0.5, h * 0.45, 380, BLUE_DARK, 0.4);
+    glow(ctx, w * 0.3, h * 0.6, 260, GREEN_DARK, 0.35);
+    skylineLayer(ctx, w, h, rand, {
+      baseY: horizon, minH: 120, maxH: 420, minW: 60, maxW: 150,
+      color: '#02080f', windowAlpha: 0.3, windowPalette: ['#bde8d4', '#a5d8ea'], gap: 18,
+    });
+    waterReflection(ctx, w, h, horizon, rand, 0.5);
+    finish(w, h, 0.05, 0.5);
+  },
+
+  /* --- track cards (16:10) --- */
+
+  'track-healthcare': () => {
+    const w = 1600, h = 1000;
+    const rand = baseScene(w, h, 11, 'green');
+    glow(ctx, w * 0.35, h * 0.55, 470, GREEN_DARK, 0.42);
+    glow(ctx, w * 0.8, h * 0.3, 320, BLUE_DARK, 0.25);
+    pulseWave(ctx, w, h, rand, { y: h * 0.55, amp: 220, palette: [GREEN], spikes: 4, lw: 3.6 });
+    bokeh(ctx, w, h, rand, { count: 22, palette: [GREEN, '#d8ffe9'], rmin: 1.2, rmax: 4.4, alpha: 0.4 });
+    finish(w, h, 0.05, 0.5);
+  },
+
+  'track-ai': () => {
+    const w = 1600, h = 1000;
+    const rand = baseScene(w, h, 22, 'blue');
+    glow(ctx, w * 0.6, h * 0.45, 520, BLUE_DARK, 0.45);
+    network(ctx, w, h, rand, { count: 46, palette: [BLUE, GREEN, '#bfe9f5'], linkDist: 260, alpha: 0.65, depth: true });
+    finish(w, h, 0.05, 0.5);
+  },
+
+  'track-research': () => {
+    const w = 1600, h = 1000;
+    const rand = baseScene(w, h, 33, 'green');
+    glow(ctx, w * 0.5, h * 0.5, 460, '#043024', 0.5);
+    molecularRings(ctx, w, h, rand, { cx: w * 0.52, cy: h * 0.5, palette: [GREEN, BLUE, '#9fe8c2'], rings: 5, rmax: h * 0.42 });
+    bokeh(ctx, w, h, rand, { count: 18, palette: [GREEN, BLUE], rmin: 1, rmax: 3.4, alpha: 0.4 });
+    finish(w, h, 0.05, 0.5);
+  },
+
+  'track-startups': () => {
+    const w = 2000, h = 1000;
+    const rand = baseScene(w, h, 44, 'blue');
+    glow(ctx, w * 0.5, h * 0.75, 540, BLUE_DARK, 0.4);
+    lightColumns(ctx, w, h, rand, { count: 26, palette: [BLUE, GREEN, BLUE], alpha: 0.4 });
+    lightStreaks(ctx, w, h, rand, { count: 16, palette: [GREEN, BLUE], angle: -1.35, len: 0.3, alpha: 0.35 });
+    finish(w, h, 0.05, 0.5);
+  },
+
+  'track-community': () => {
+    const w = 2000, h = 1000;
+    const rand = baseScene(w, h, 55, 'green');
+    const horizon = h * 0.62;
+    glow(ctx, w * 0.35, h * 0.5, 480, GREEN_DARK, 0.4);
+    glow(ctx, w * 0.75, h * 0.42, 380, BLUE_DARK, 0.3);
+    skylineLayer(ctx, w, h, rand, {
+      baseY: horizon, minH: 80, maxH: 300, minW: 70, maxW: 190,
+      color: '#02090c', windowAlpha: 0.3, windowPalette: ['#d5f2e2', '#ffe9b8', '#bfe4f2'], gap: 30,
+    });
+    waterReflection(ctx, w, h, horizon, rand, 0.45);
+    bokeh(ctx, w, h, rand, { count: 42, palette: [GREEN, '#ffd98a', BLUE], rmin: 2, rmax: 8, ymin: 0.35, ymax: 0.68, alpha: 0.4 });
+    finish(w, h, 0.05, 0.45);
+  },
+
+  /* --- portraits: luminous fields behind monogram cards (3:4) --- */
+
+  'portrait-1': () => portraitField(900, 1200, 71, GREEN),
+  'portrait-2': () => portraitField(900, 1200, 72, BLUE),
+  'portrait-3': () => portraitField(900, 1200, 73, GREEN),
+  'portrait-4': () => portraitField(900, 1200, 74, BLUE),
+};
+
+function portraitField(w, h, seed, accent) {
+  const rand = baseScene(w, h, seed, accent === GREEN ? 'green' : 'blue');
+  const dark = accent === GREEN ? GREEN_DARK : BLUE_DARK;
+  glow(ctx, w * (0.3 + rand() * 0.4), h * 0.32, w * 0.55, dark, 0.5);
+  glow(ctx, w * 0.5, h * 0.85, w * 0.6, dark, 0.35);
+  glow(ctx, w * (0.25 + rand() * 0.5), h * 0.28, w * 0.2, accent, 0.22);
+  // a single elegant arc
+  ctx.strokeStyle = rgba(accent, 0.4);
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.ellipse(w * 0.5, h * 0.62, w * 0.58, w * 0.58, -0.4 + rand() * 0.8, Math.PI * 1.05, Math.PI * 1.75);
+  ctx.stroke();
+  bokeh(ctx, w, h, rand, { count: 14, palette: [accent, '#e8f6ee'], rmin: 1, rmax: 3.6, alpha: 0.35 });
+  finish(w, h, 0.05, 0.5);
+}
+
+/* --- event artwork variants (16:10) --- */
+
+const eventSpecs = {
+  'event-opening':   { motif: 'bokeh',    seed: 501, hue: 'warmgreen' },
+  'event-district':  { motif: 'aerial',   seed: 502, hue: 'blue' },
+  'event-care':      { motif: 'wave',     seed: 503, hue: 'green' },
+  'event-ai':        { motif: 'network',  seed: 504, hue: 'blue' },
+  'event-security':  { motif: 'grid',     seed: 505, hue: 'blue' },
+  'event-robotics':  { motif: 'arcs',     seed: 506, hue: 'blue' },
+  'event-research':  { motif: 'rings',    seed: 507, hue: 'green' },
+  'event-bench':     { motif: 'wave',     seed: 508, hue: 'mix' },
+  'event-posters':   { motif: 'corridor', seed: 509, hue: 'mix' },
+  'event-founders':  { motif: 'columns',  seed: 510, hue: 'mix' },
+  'event-scaling':   { motif: 'streaks',  seed: 511, hue: 'blue' },
+  'event-pitch':     { motif: 'converge', seed: 512, hue: 'mix' },
+  'event-finale':    { motif: 'skyline',  seed: 513, hue: 'warmgreen' },
+  'event-workforce': { motif: 'converge', seed: 514, hue: 'green' },
+  'event-wellness':  { motif: 'ripple',   seed: 515, hue: 'green' },
+};
+
+function eventArt(name) {
+  const { motif, seed, hue } = eventSpecs[name];
+  const w = 1200, h = 750;
+  const tint = hue === 'blue' ? 'blue' : 'green';
+  const rand = baseScene(w, h, seed, tint);
+  const pal = hue === 'blue' ? [BLUE, '#bfe9f5', GREEN]
+    : hue === 'green' ? [GREEN, '#d8ffe9', BLUE]
+    : hue === 'warmgreen' ? [GREEN, '#ffd98a', BLUE]
+    : [GREEN, BLUE, '#d8f4ea'];
+  const dark = hue === 'blue' ? BLUE_DARK : GREEN_DARK;
+  glow(ctx, w * (0.3 + rand() * 0.4), h * (0.3 + rand() * 0.4), 380, dark, 0.42);
+  switch (motif) {
+    case 'bokeh':
+      bokeh(ctx, w, h, rand, { count: 60, palette: pal, rmin: 2, rmax: 16, alpha: 0.42 });
+      hazeBand(ctx, w, h * 0.7, 120, dark, 0.2);
+      break;
+    case 'aerial':
+      for (let i = 0; i < 26; i++) {
+        ctx.strokeStyle = rgba(pal[i % pal.length], 0.06 + rand() * 0.1);
+        ctx.lineWidth = rand() < 0.15 ? 2 : 1;
+        ctx.beginPath();
+        if (rand() < 0.5) { const x = rand() * w; ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+        else { const y = rand() * h; ctx.moveTo(0, y); ctx.lineTo(w, y); }
+        ctx.stroke();
+      }
+      bokeh(ctx, w, h, rand, { count: 34, palette: pal, rmin: 1, rmax: 4, alpha: 0.55 });
+      break;
+    case 'wave':
+      pulseWave(ctx, w, h, rand, { y: h * 0.55, amp: 150, palette: [pal[0]], spikes: 3, lw: 3 });
+      if (hue === 'mix') pulseWave(ctx, w, h, mulberry32(seed + 1), { y: h * 0.62, amp: 90, palette: [BLUE], alpha: 0.35, spikes: 2, lw: 1.8 });
+      break;
+    case 'network':
+      network(ctx, w, h, rand, { count: 34, palette: pal, linkDist: 210, alpha: 0.6, depth: true });
+      break;
+    case 'grid':
+      for (let i = 0; i < 14; i++) {
+        const x = (i / 13) * w;
+        ctx.strokeStyle = rgba(BLUE, 0.16 + rand() * 0.14);
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+      for (let j = 0; j < 9; j++) {
+        const y = (j / 8) * h;
+        ctx.strokeStyle = rgba(BLUE, 0.14 + rand() * 0.12);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+      glow(ctx, w * 0.5, h * 0.5, 260, BLUE, 0.3);
+      network(ctx, w, h, rand, { count: 12, palette: [BLUE, GREEN], linkDist: 240, alpha: 0.5 });
+      break;
+    case 'arcs':
+      for (let i = 0; i < 7; i++) {
+        const col = pal[i % pal.length];
+        ctx.strokeStyle = rgba(col, 0.3 + rand() * 0.3);
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(w * 0.5, h * 1.15, h * (0.4 + i * 0.14), Math.PI * (1.05 + rand() * 0.1), Math.PI * (1.8 + rand() * 0.12));
+        ctx.stroke();
+      }
+      glow(ctx, w * 0.5, h * 0.55, 240, pal[0], 0.25);
+      break;
+    case 'rings':
+      molecularRings(ctx, w, h, rand, { cx: w * 0.5, cy: h * 0.5, palette: pal, rings: 4, rmax: h * 0.4 });
+      break;
+    case 'corridor':
+      corridorPanels(ctx, w, h, rand, { count: 12, palette: pal });
+      break;
+    case 'columns':
+      lightColumns(ctx, w, h, rand, { count: 20, palette: pal, alpha: 0.4 });
+      break;
+    case 'streaks':
+      lightStreaks(ctx, w, h, rand, { count: 34, palette: pal, angle: -1.1, len: 0.45, alpha: 0.55 });
+      break;
+    case 'converge':
+      convergeBeams(ctx, w, h, { palette: pal });
+      bokeh(ctx, w, h, rand, { count: 16, palette: pal, rmin: 1, rmax: 4, alpha: 0.4 });
+      break;
+    case 'skyline': {
+      const horizon = h * 0.62;
+      skylineLayer(ctx, w, h, rand, {
+        baseY: horizon, minH: 60, maxH: 220, minW: 60, maxW: 160,
+        color: '#02090c', windowAlpha: 0.3, windowPalette: ['#d5f2e2', '#ffe9b8', '#bfe4f2'], gap: 26,
+      });
+      waterReflection(ctx, w, h, horizon, rand, 0.45);
+      bokeh(ctx, w, h, rand, { count: 30, palette: pal, rmin: 2, rmax: 7, ymin: 0.3, ymax: 0.62, alpha: 0.45 });
+      break;
+    }
+    case 'ripple':
+      for (let i = 0; i < 26; i++) {
+        const y = h * 0.3 + i * (h * 0.026);
+        ctx.strokeStyle = rgba(pal[0], 0.08 + (i / 26) * 0.2);
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let x = 0; x <= w; x += 8) {
+          const yy = y + Math.sin(x * 0.012 + i * 0.7) * (4 + i * 0.5);
+          if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+        }
+        ctx.stroke();
+      }
+      glow(ctx, w * 0.4, h * 0.4, 260, GREEN, 0.2);
+      break;
+  }
+  finish(w, h, 0.05, 0.5);
+}
+
+for (const name of Object.keys(eventSpecs)) {
+  artworks[name] = () => eventArt(name);
+}
+
+/* API used by the Playwright driver */
+window.renderArtwork = function (name) {
+  if (!artworks[name]) throw new Error('unknown artwork: ' + name);
+  artworks[name]();
+  return canvas.toDataURL('image/jpeg', 0.88);
+};
+window.artworkNames = Object.keys(artworks);
+</script>
+</body>
+</html>
