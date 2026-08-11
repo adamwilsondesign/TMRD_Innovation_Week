@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { schedule, tracks } from '../data/site';
+import { media, schedule, tracks } from '../data/site';
 import { usePointerGlow } from '../lib/usePointerGlow';
 import { useReveal } from '../lib/useReveal';
-import { ConnectionArcs } from './motion/ConnectionArcs';
+import { MediaFrame } from './media/MediaFrame';
 import { MagneticButton } from './motion/MagneticButton';
 import { RevealText } from './motion/RevealText';
 
@@ -27,7 +27,7 @@ export function WeekAtAGlance() {
     setActive(i);
   };
 
-  // Elegant two-stage swap: fade the old panel out, then stagger the new in.
+  // Restrained two-stage swap: fade the old panel out, stagger the new in.
   useEffect(() => {
     if (active === shown) return;
     setStage('out');
@@ -38,7 +38,7 @@ export function WeekAtAGlance() {
     return () => window.clearTimeout(timer.current);
   }, [active, shown]);
 
-  // The light beneath the active date follows it.
+  // The gradient underline follows the active date.
   useEffect(() => {
     const tablist = tablistRef.current;
     const glowEl = glowRef.current;
@@ -73,7 +73,6 @@ export function WeekAtAGlance() {
 
   return (
     <section className="section week" id="schedule" ref={ref}>
-      <ConnectionArcs className="week__arcs" />
       <div className="container">
         <div className="section-head">
           <p className="eyebrow" data-reveal="0">{schedule.eyebrow}</p>
@@ -127,25 +126,17 @@ export function WeekAtAGlance() {
                 key={event.title}
               >
                 <div className="event__media">
-                  <img
-                    src={event.image}
-                    alt={event.imageAlt}
-                    loading="lazy"
-                    width={1200}
-                    height={750}
-                  />
+                  <MediaFrame entry={media[event.mediaKey]} fill />
                   {event.featured && <span className="event__flag">Featured</span>}
                 </div>
                 <div className="event__body">
                   <p className="event__meta">
-                    <span className="event__day">{day.label}</span>
-                    <span aria-hidden="true"> · </span>
-                    <span>{event.time}</span>
+                    {day.label} · {event.time}
                   </p>
                   <h3 className="event__title">{event.title}</h3>
                   <p className="event__track">
                     <span className="event__track-dot" aria-hidden="true" />
-                    {event.track} · {event.venue}
+                    {event.track}
                   </p>
                   <p className="event__desc">{event.description}</p>
                 </div>
@@ -158,7 +149,9 @@ export function WeekAtAGlance() {
           <MagneticButton variant="ghost" href="#schedule">
             {schedule.cta}
           </MagneticButton>
-          <p className="week__footnote">{schedule.footnote}</p>
+          <p className="week__footnote">
+            Concept programming shown — the full schedule will be announced.
+          </p>
         </div>
       </div>
     </section>

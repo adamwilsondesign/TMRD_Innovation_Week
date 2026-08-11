@@ -1,12 +1,20 @@
-import { people } from '../data/site';
+import { media, people } from '../data/site';
+import { mediaDebugEnabled, MediaFrame } from './media/MediaFrame';
 import { usePointerGlow } from '../lib/usePointerGlow';
 import { useReveal } from '../lib/useReveal';
 import { MagneticButton } from './motion/MagneticButton';
 import { RevealText } from './motion/RevealText';
 
+/**
+ * No speakers are confirmed yet — this section renders image-ready
+ * announcement slots. When speakers are announced, extend the slot data in
+ * src/data/site.ts with name/role/org and drop 4:5 portraits at the media
+ * manifest paths.
+ */
 export function People() {
   const ref = useReveal<HTMLElement>();
   usePointerGlow(ref);
+  const debug = mediaDebugEnabled();
 
   return (
     <section className="section people" id="speakers" ref={ref}>
@@ -18,47 +26,40 @@ export function People() {
         </div>
 
         <div className="speakers">
-          {people.speakers.map((speaker, i) => (
+          {people.slots.map((slot, i) => (
             <article
-              className={`speaker glow-card accent-${speaker.accent}`}
+              className={`speaker glow-card accent-${media[slot.mediaKey].accent}`}
               data-reveal={i}
-              key={speaker.name}
+              key={slot.mediaKey}
             >
               <div className="speaker__portrait">
-                <img
-                  src={speaker.image}
-                  alt={`Placeholder portrait artwork for ${speaker.name}`}
-                  loading="lazy"
-                  width={900}
-                  height={1200}
-                  data-reveal-img
-                />
-                <span className="speaker__initials" aria-hidden="true">
-                  {speaker.initials}
-                </span>
-                <span className="speaker__edge" aria-hidden="true" />
+                <MediaFrame entry={media[slot.mediaKey]} fill overlay="soft" />
+                <div className="speaker__caption">
+                  <p className="speaker__category">{slot.category}</p>
+                  <p className="speaker__announce">{people.announcement}</p>
+                </div>
               </div>
-              <h3 className="speaker__name">{speaker.name}</h3>
-              <p className="speaker__role">{speaker.role}</p>
-              <p className="speaker__org">{speaker.org}</p>
             </article>
           ))}
         </div>
 
         <div className="partners" data-reveal="0">
-          <div className="partners__kicker">
-            {people.partnersKicker.map((line) => (
-              <span key={line}>{line}</span>
-            ))}
+          <div className="partners__kicker-block">
+            <span className="partners__kicker">{people.partners.kicker}</span>
+            <p className="partners__body">{people.partners.body}</p>
           </div>
-          <p className="partners__body">{people.partnersBody}</p>
-          <ul className="partners__list" aria-label="Partners">
-            {people.partners.map((partner) => (
-              <li className="partners__mark" key={partner}>
-                {partner}
-              </li>
-            ))}
-          </ul>
+          {debug ? (
+            <ul className="partners__slots" aria-label="Partner logo slots (debug)">
+              {Array.from({ length: people.partners.slotCount }, (_, i) => (
+                <li className="partners__slot" key={i}>
+                  <span>partner-{String(i + 1).padStart(2, '0')}.svg</span>
+                  <span>320 × 120 · monochrome</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="partners__rule" aria-hidden="true" />
+          )}
           <div className="partners__cta">
             <MagneticButton variant="ghost" href="#speakers">
               {people.cta}

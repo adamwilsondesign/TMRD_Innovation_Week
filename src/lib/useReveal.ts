@@ -26,7 +26,7 @@ export function useReveal<T extends HTMLElement>(deps: unknown[] = []) {
         const order = parseFloat(el.dataset.reveal || '0');
         gsap.fromTo(
           el,
-          { autoAlpha: 0, y: 40 },
+          { autoAlpha: 0, y: 26 },
           {
             autoAlpha: 1,
             y: 0,
@@ -41,9 +41,9 @@ export function useReveal<T extends HTMLElement>(deps: unknown[] = []) {
       root.querySelectorAll<HTMLElement>('[data-window]').forEach((el) => {
         gsap.fromTo(
           el,
-          { clipPath: 'inset(62% 6% 0% 6% round 999px 999px 18px 18px)' },
+          { clipPath: 'inset(62% 6% 0% 6% round 999px 999px 14px 14px)' },
           {
-            clipPath: 'inset(0% 0% 0% 0% round 999px 999px 18px 18px)',
+            clipPath: 'inset(0% 0% 0% 0% round 999px 999px 14px 14px)',
             duration: 1.4,
             ease: 'power3.inOut',
             scrollTrigger: { trigger: el, start: 'top 92%', once: true },

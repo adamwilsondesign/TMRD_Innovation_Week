@@ -1,4 +1,4 @@
-import { finalCta, hero } from '../data/site';
+import { finalCta } from '../data/site';
 import { useReveal } from '../lib/useReveal';
 import { scrollToId } from '../lib/scroll';
 import { ConnectionArcs } from './motion/ConnectionArcs';
@@ -11,16 +11,10 @@ export function FinalCTA() {
   return (
     <section className="section final" ref={ref} aria-label="Be part of what's next">
       <div className="final__bg" aria-hidden="true">
-        <div className="final__sweep" />
+        <div className="final__light final__light--green" />
+        <div className="final__light final__light--blue" />
+        <div className="final__haze" />
         <ConnectionArcs className="final__arcs" />
-        <img
-          className="final__skyline"
-          src={hero.image}
-          alt=""
-          loading="lazy"
-          width={2400}
-          height={1400}
-        />
       </div>
       <div className="container final__inner">
         <p className="eyebrow" data-reveal="0">{finalCta.eyebrow}</p>

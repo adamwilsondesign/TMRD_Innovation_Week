@@ -27,21 +27,11 @@ const BLOBS: Blob[] = [
   { bx: 0.72, by: 0.55, r: 0.32, color: BLUE, alpha: 0.055, speed: 0.052, phase: 5.3, ampX: 0.05, ampY: 0.05, depth: 0.034 },
 ];
 
-interface Particle {
-  x: number;
-  y: number;
-  r: number;
-  vy: number;
-  vx: number;
-  a: number;
-  green: boolean;
-}
-
 /**
  * The page-wide ambient light layer: a fixed canvas of slow green/blue
- * light fields plus a handful of drifting particles. Responds gently to
- * pointer position and scroll velocity. Capped at ~30fps, paused when the
- * tab is hidden, simplified on small screens, static under reduced motion.
+ * light fields. Responds gently to pointer position and scroll velocity.
+ * Capped at ~30fps, paused when the tab is hidden, simplified on small
+ * screens, static under reduced motion.
  */
 export function AmbientField() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -68,21 +58,6 @@ export function AmbientField() {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
-
-    const particles: Particle[] = [];
-    if (!small && !reduced) {
-      for (let i = 0; i < 22; i++) {
-        particles.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          r: 0.6 + Math.random() * 1.6,
-          vy: -(2 + Math.random() * 7),
-          vx: (Math.random() - 0.5) * 3,
-          a: 0.08 + Math.random() * 0.2,
-          green: Math.random() < 0.5,
-        });
-      }
-    }
 
     let px = 0.5; // pointer, viewport fractions (lerped)
     let py = 0.4;
@@ -118,13 +93,6 @@ export function AmbientField() {
         ctx.fillStyle = g;
         ctx.fillRect(x - r, y - r, r * 2, r * 2);
       }
-      for (const p of particles) {
-        const [cr, cg, cb] = p.green ? GREEN : BLUE;
-        ctx.fillStyle = `rgba(${cr},${cg},${cb},${p.a})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
     };
 
     if (reduced) {
@@ -150,7 +118,6 @@ export function AmbientField() {
       if (hidden) return;
       acc += dt;
       if (acc < FRAME) return;
-      const step = Math.min(acc, 100) / 1000;
       acc = 0;
 
       px = lerp(px, tx, 0.05);
@@ -159,15 +126,6 @@ export function AmbientField() {
       const sy = window.scrollY;
       scrollVel = lerp(scrollVel, clamp((sy - lastScroll) / 18, -8, 8), 0.12);
       lastScroll = sy;
-
-      for (const p of particles) {
-        p.x += p.vx * step;
-        p.y += (p.vy - scrollVel * 3) * step;
-        if (p.y < -8) { p.y = h + 8; p.x = Math.random() * w; }
-        if (p.y > h + 8) { p.y = -8; p.x = Math.random() * w; }
-        if (p.x < -8) p.x = w + 8;
-        if (p.x > w + 8) p.x = -8;
-      }
 
       draw(now / 1000);
     };

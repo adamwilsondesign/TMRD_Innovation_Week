@@ -97,20 +97,32 @@ if (!shotsOnly) {
     (await page.locator('.district__node--active .district__node-num').textContent()) === '3',
   );
 
-  /* ---- pass modal ---- */
+  /* ---- pass selection state ---- */
   // Reveal-hidden content only becomes visible once scrolled to.
   await page.locator('#tickets').scrollIntoViewIfNeeded();
   await settle(page, 1400);
-  await page.getByRole('button', { name: 'Select All-Access Pass' }).click();
-  await settle(page, 600);
-  const dialog = page.locator('dialog.pass-modal');
-  check('pass modal opens', await dialog.evaluate((d) => d.open));
-  await page.getByRole('button', { name: 'Select this pass' }).click();
-  await settle(page, 500);
-  check('pass modal closes on confirm', !(await dialog.evaluate((d) => d.open)));
+  await page.getByRole('button', { name: 'Select All Access Pass' }).click();
+  await settle(page, 400);
+  check(
+    'pass selection updates button',
+    (await page.getByRole('button', { name: 'All Access Pass Selected' }).count()) === 1,
+  );
   check(
     'selection confirmation shown',
-    (await page.getByText('All-Access Pass selected').count()) === 1,
+    (await page
+      .locator('.passes__footnote', { hasText: 'All Access Pass selected' })
+      .count()) === 1,
+  );
+  check(
+    'selected card highlighted',
+    (await page.locator('.pass--selected').count()) === 1,
+  );
+
+  /* ---- media debug mode ---- */
+  check('no media debug labels by default', (await page.locator('.media-frame__debug').count()) === 0);
+  check(
+    'media fallbacks render (no broken images)',
+    (await page.locator('.media-frame__fallback').count()) > 10,
   );
 
   /* ---- newsletter validation ---- */
@@ -140,10 +152,10 @@ await page.evaluate(async () => {
 });
 await settle(page, 2600);
 await page.screenshot({
-  path: path.join(root, 'artifacts', 'tmrd-home-desktop.png'),
+  path: path.join(root, 'artifacts', 'tmrd-layout-desktop.png'),
   fullPage: true,
 });
-console.log('saved artifacts/tmrd-home-desktop.png');
+console.log('saved artifacts/tmrd-layout-desktop.png');
 
 if (!shotsOnly) {
   check('no console errors on desktop', consoleErrors.length === 0);
@@ -203,11 +215,28 @@ await mpage.evaluate(async () => {
 });
 await settle(mpage, 2400);
 await mpage.screenshot({
-  path: path.join(root, 'artifacts', 'tmrd-home-mobile.png'),
+  path: path.join(root, 'artifacts', 'tmrd-layout-mobile.png'),
   fullPage: true,
 });
-console.log('saved artifacts/tmrd-home-mobile.png');
+console.log('saved artifacts/tmrd-layout-mobile.png');
 await mctx.close();
+
+/* ---------- media debug mode on ---------- */
+if (!shotsOnly) {
+  const dctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const dpage = await dctx.newPage();
+  await dpage.goto(url + '/?mediaDebug=1', { waitUntil: 'networkidle' });
+  await settle(dpage, 1200);
+  check(
+    'mediaDebug overlays render',
+    (await dpage.locator('.media-frame__debug').count()) > 5,
+  );
+  check(
+    'partner debug slots render',
+    (await dpage.locator('.partners__slot').count()) === 6,
+  );
+  await dctx.close();
+}
 
 /* ---------- reduced motion ---------- */
 if (!shotsOnly) {

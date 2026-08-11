@@ -36,6 +36,10 @@ export function Footer() {
           <div className="footer__brand">
             <Logo />
             <p className="footer__blurb">{footer.blurb}</p>
+            <a className="footer__tmrd-link" href={site.tmrdWebsiteUrl}>
+              {footer.tmrdLinkLabel}
+              <span aria-hidden="true"> →</span>
+            </a>
             <ul className="footer__social" aria-label="Social media">
               {footer.social.map((network) => (
                 <li key={network}>

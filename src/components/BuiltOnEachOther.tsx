@@ -1,9 +1,10 @@
 import { useLayoutEffect } from 'react';
-import { pillars } from '../data/site';
+import { media, pillars } from '../data/site';
 import { gsap } from '../lib/gsap';
 import { prefersReducedMotion } from '../lib/motion-utils';
 import { usePointerGlow } from '../lib/usePointerGlow';
 import { useReveal } from '../lib/useReveal';
+import { MediaFrame } from './media/MediaFrame';
 import { RevealText } from './motion/RevealText';
 
 export function BuiltOnEachOther() {
@@ -22,9 +23,9 @@ export function BuiltOnEachOther() {
         {
           left: '104%',
           opacity: 1,
-          duration: 2.6,
+          duration: 2.4,
           ease: 'power2.inOut',
-          scrollTrigger: { trigger: '.pillars', start: 'top 70%', once: true },
+          scrollTrigger: { trigger: '.pillars', start: 'top 72%', once: true },
           onComplete: () => {
             gsap.to('.pillars__pulse-dot', { opacity: 0, duration: 0.8 });
           },
@@ -40,7 +41,7 @@ export function BuiltOnEachOther() {
       <div className="container">
         <div className="section-head">
           <p className="eyebrow" data-reveal="0">{pillars.eyebrow}</p>
-          <RevealText as="h2" className="h2" lines={[pillars.headline]} />
+          <RevealText as="h2" className="h2" lines={pillars.headline} gradientLine={1} />
           <p className="lead" data-reveal="1">{pillars.body}</p>
         </div>
 
@@ -57,21 +58,11 @@ export function BuiltOnEachOther() {
               <h3 className="pillar__title">{card.title}</h3>
               <p className="pillar__body">{card.body}</p>
               <div className="pillar__window" data-window>
-                <img
-                  src={card.image}
-                  alt={card.imageAlt}
-                  loading="lazy"
-                  width={1000}
-                  height={1000}
-                  data-reveal-img
-                />
-                <div className="pillar__window-glow" aria-hidden="true" />
+                <MediaFrame entry={media[card.mediaKey]} fill className="pillar__frame" />
               </div>
             </article>
           ))}
         </div>
-
-        <p className="built__footnote" data-reveal="0">{pillars.footnote}</p>
       </div>
     </section>
   );

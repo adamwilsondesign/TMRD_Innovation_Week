@@ -1,7 +1,8 @@
-import { tracks } from '../data/site';
+import { media, tracks } from '../data/site';
 import { scrollToId } from '../lib/scroll';
 import { usePointerGlow } from '../lib/usePointerGlow';
 import { useReveal } from '../lib/useReveal';
+import { MediaFrame } from './media/MediaFrame';
 import { RevealText } from './motion/RevealText';
 
 function Arrow() {
@@ -40,17 +41,13 @@ export function Tracks() {
               data-reveal={i % 3}
               aria-label={`${track.title} — see the schedule`}
             >
-              <div className="track__media" aria-hidden="true">
-                <img
-                  src={track.image}
-                  alt=""
-                  loading="lazy"
-                  width={track.wide ? 2000 : 1600}
-                  height={1000}
-                />
-                <div className="track__scrim" />
-                <div className="track__bloom" />
-              </div>
+              <MediaFrame
+                entry={media[track.mediaKey]}
+                fill
+                overlay="soft"
+                className="track__media"
+              />
+              <div className="track__bloom" aria-hidden="true" />
               <div className="track__body">
                 <h3 className="track__title">{track.title}</h3>
                 <p className="track__desc">{track.body}</p>
@@ -61,22 +58,27 @@ export function Tracks() {
         </div>
 
         <aside className="tgh-banner" data-reveal="0" aria-label="TGH Innovation Week">
-          <div className="tgh-banner__brand">
-            <span className="tgh-banner__kicker">{tracks.tgh.kicker}</span>
-            <span className="tgh-banner__audience">{tracks.tgh.audience}</span>
+          <div className="tgh-banner__rule" aria-hidden="true" />
+          <div className="tgh-banner__grid">
+            <div className="tgh-banner__brand">
+              <span className="tgh-banner__kicker">{tracks.tgh.kicker}</span>
+              <span className="tgh-banner__audience">{tracks.tgh.audience}</span>
+            </div>
+            <div className="tgh-banner__copy">
+              <p className="tgh-banner__lead">{tracks.tgh.lead}</p>
+              <p className="tgh-banner__body">{tracks.tgh.body}</p>
+            </div>
+            <a
+              className="btn btn--tgh"
+              href="#tickets"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollToId('tickets');
+              }}
+            >
+              <span className="btn__label">{tracks.tgh.cta}</span>
+            </a>
           </div>
-          <p className="tgh-banner__body">{tracks.tgh.body}</p>
-          <a
-            className="btn btn--tgh"
-            href="#tickets"
-            onClick={(e) => {
-              e.preventDefault();
-              scrollToId('tickets');
-            }}
-          >
-            <span className="btn__label">{tracks.tgh.cta}</span>
-            <Arrow />
-          </a>
         </aside>
       </div>
     </section>

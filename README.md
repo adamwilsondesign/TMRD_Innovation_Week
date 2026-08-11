@@ -1,10 +1,10 @@
-# TMRD Innovation Week — Homepage Demo
+# TMRD Innovation Week — Homepage
 
-A high-fidelity, highly animated demo of the TMRD Innovation Week homepage:
-a district-wide innovation festival in Tampa, FL (February 22–26, 2027),
-powered by Tampa General Hospital. Built as a creative-development showcase —
-cinematic dark atmosphere, green/blue light as the connective motif, and a
-restrained editorial layout.
+Editorial, image-ready homepage for TMRD Innovation Week (February 22–26,
+2027 · Tampa, FL), powered by Tampa General Hospital. Cinematic dark
+foundation, green/blue light as the connective brand motif, disciplined
+3- and 4-column layouts — built to accept final photography, portraits, and
+logos as simple file drops.
 
 ## Install / Run / Build
 
@@ -13,62 +13,64 @@ npm install
 npm run dev        # dev server at http://localhost:5173
 npm run build      # type-check + production build into dist/
 npm run preview    # serve the production build
-npm run smoke      # Playwright smoke tests + full-page screenshots into artifacts/
+npm run smoke      # Playwright checks + full-page screenshots into artifacts/
 ```
 
 The smoke script expects a Chromium binary at `/opt/pw-browsers/chromium`
 (override with `CHROMIUM_PATH=/path/to/chrome`).
 
-## Main dependencies
-
-- **React 18 + TypeScript + Vite** — application shell
-- **GSAP + ScrollTrigger** — load choreography, scroll reveals, parallax
-- **Lenis** — smooth scrolling (disabled under `prefers-reduced-motion`)
-- **@fontsource-variable/manrope** — self-hosted variable font (Neulis Sans
-  stand-in; drop the real files into `src/styles` and update `--font-sans`)
-- **Playwright** (dev-only) — smoke tests, screenshots, and the artwork generator
-
 ## Where things live
 
 | What | Where |
 |---|---|
-| **All page content** (copy, tracks, events, speakers, venues, pricing, footer) | `src/data/site.ts` |
-| Sections | `src/components/*.tsx` (Hero, BuiltOnEachOther, Tracks, WeekAtAGlance, People, District, Passes, FinalCTA, Footer) |
-| Motion system | `src/components/motion/` (AmbientField canvas, CursorLight, MagneticButton, RevealText, ConnectionArcs, ScrollProgress) + `src/lib/` (useReveal, usePointerGlow) |
+| **All page content** (copy, tracks, events, speaker slots, venues, pricing, footer) | `src/data/site.ts` |
+| **Media manifest** (every image slot: path, alt, ratio, crop) | `src/data/media.ts` |
+| Image-ready frame component | `src/components/media/MediaFrame.tsx` |
+| Sections | `src/components/*.tsx` |
+| Motion system | `src/components/motion/` + `src/lib/` (useReveal, usePointerGlow) |
 | Design tokens | `src/styles/globals.css` (`:root` custom properties) |
-| Section styles | `src/styles/sections.css` · atmosphere/motion in `src/styles/motion.css` |
+| Section styles | `src/styles/sections.css` · atmosphere in `src/styles/motion.css` |
+| Asset brief for the art team | `ASSET_SPECS.md` |
 
-## Replacing imagery
+## Installing final imagery
 
-All imagery in `public/images/` is **procedurally generated abstract artwork**
-(light, geometry, atmosphere — no stock photos, no fabricated people). This
-environment has no external network access, so the art is produced locally by
-`scripts/assets/generator.html` + `scripts/generate-assets.mjs`:
+No final photography, portraits, or logos are bundled. Every future image
+slot already exists with correct geometry and a tasteful dark fallback.
 
-```bash
-node scripts/generate-assets.mjs              # regenerate everything
-node scripts/generate-assets.mjs hero-skyline # regenerate one artwork
-```
+1. Check `ASSET_SPECS.md` for the slot's path, size, and art direction.
+2. Drop the file at that path under `public/assets/…` — the site detects it
+   automatically. No code changes.
+3. To adjust a crop, edit that entry's `objectPosition` in
+   `src/data/media.ts` (CSS `object-position` syntax, e.g. `"65% 40%"`).
 
-To use real photography, drop a file with the same name and aspect ratio into
-`public/images/` (paths are centralized in `src/data/site.ts` via the `img()`
-helper). Speaker cards are luminous monogram placeholders — replace
-`portrait-*.jpg` with real 3:4 portraits and remove the `initials` overlay in
-`src/components/People.tsx` if desired. Partner logos are rendered as text
-wordmarks; swap in official assets when licensed files are available.
+### Media debug mode
 
-## Reference comparison mode (dev only)
+Open the site with **`?mediaDebug=1`** to overlay each media slot with its
+asset key, expected filename, and recommended dimensions, and to reveal the
+partner logo slots. The labels never render in normal use.
 
-Put the long reference composite at `public/reference.png`, then:
+## Replacing concept content
 
-- open `http://localhost:5173/?reference=1`, or press **R** on the page
-- press **O** (or use the chip, bottom-left) to cycle overlay opacity 50% → 100% → 0%
+Programming, speakers, and partners are not yet confirmed. Everything
+provisional is marked `status: 'concept'` in `src/data/site.ts`:
 
-The overlay is `pointer-events: none` and is excluded from production builds.
+- **Events** (`schedule.days[].events`) — concept sessions with no real
+  speakers, hosts, or venues. Replace titles/times/descriptions as the real
+  program lands.
+- **Speaker slots** (`people.slots`) — render as "Speaker announcements
+  coming soon". Add `name` / `role` / `org` fields and a portrait file when
+  speakers are confirmed.
+- **Partners** (`people.partners`) — "Partner announcements coming soon";
+  logo-ready slots appear only in media-debug mode.
+- Set `site.tmrdWebsiteUrl` to the real TMRD site before launch.
 
-## Accessibility & motion
+## Stack & behavior
 
-Semantic landmarks, one `h1`, keyboard-accessible day tabs (arrow keys /
-Home / End), focus-trapped mobile menu, native `<dialog>` pass modal, visible
-focus states, and full `prefers-reduced-motion` support (no smooth scroll, no
-particles/cursor light, content immediately visible).
+React 18 + TypeScript + Vite · GSAP/ScrollTrigger (scroll choreography) ·
+Lenis (smooth scroll) · Manrope variable font (Neulis Sans stand-in — swap
+in `--font-sans` when licensed files are available).
+
+Accessible date tabs (arrow keys / Home / End), focus-trapped mobile menu,
+validated newsletter form, visible focus states, and full
+`prefers-reduced-motion` support (no smooth scroll, no pointer light, no
+continuous motion; content immediately visible).
