@@ -120,10 +120,20 @@ if (!shotsOnly) {
 
   /* ---- media debug mode ---- */
   check('no media debug labels by default', (await page.locator('.media-frame__debug').count()) === 0);
-  check(
-    'media fallbacks render (no broken images)',
-    (await page.locator('.media-frame__fallback').count()) > 10,
-  );
+  const mediaHealth = await page.evaluate(() => {
+    const frames = [...document.querySelectorAll('.media-frame')];
+    return {
+      broken: frames.filter((f) => {
+        const img = f.querySelector('img');
+        return img && (!img.complete || img.naturalWidth === 0);
+      }).length,
+      real: frames.filter((f) => f.querySelector('img')).length,
+      fallback: frames.filter((f) => f.querySelector('.media-frame__fallback')).length,
+    };
+  });
+  check('no broken media images', mediaHealth.broken === 0);
+  check('installed artwork renders as real images', mediaHealth.real >= 10);
+  check('missing slots keep intentional fallbacks', mediaHealth.fallback >= 5);
 
   /* ---- newsletter validation ---- */
   const emailInput = page.locator('#newsletter-email');

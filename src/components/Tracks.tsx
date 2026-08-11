@@ -44,7 +44,7 @@ export function Tracks() {
               <MediaFrame
                 entry={media[track.mediaKey]}
                 fill
-                overlay="soft"
+                overlay="strong"
                 className="track__media"
               />
               <div className="track__bloom" aria-hidden="true" />
