@@ -19,8 +19,31 @@ export function Hero() {
       // Load sequence: nav → eyebrow → headline (RevealText) → copy → CTAs.
       // Total choreography lands ~1.6s; nothing blocks reading.
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      tl.fromTo('.header', { autoAlpha: 0, y: -14 }, { autoAlpha: 1, y: 0, duration: 0.8 }, 0)
-        .fromTo('.hero__media', { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.4, ease: 'power2.out' }, 0.15)
+      // clearProps: a lingering transform would make the fixed header the
+      // containing block for the fixed mobile menu.
+      tl.fromTo(
+        document.querySelector('.header'),
+        { autoAlpha: 0, y: -14 },
+        { autoAlpha: 1, y: 0, duration: 0.8, clearProps: 'transform,opacity,visibility' },
+        0,
+      )
+        .fromTo(
+          '.hero__media-inner',
+          { clipPath: 'inset(0% 0% 0% 100% round 20px 0 0 20px)', autoAlpha: 0.4 },
+          {
+            clipPath: 'inset(0% 0% 0% 0% round 20px 0 0 20px)',
+            autoAlpha: 1,
+            duration: 1.5,
+            ease: 'power3.inOut',
+          },
+          0.25,
+        )
+        .fromTo(
+          '.hero__frame img, .hero__frame .media-frame__fallback',
+          { scale: 1.045 },
+          { scale: 1, duration: 2.4, ease: 'power2.out' },
+          0.25,
+        )
         .fromTo('.hero__eyebrow', { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.7 }, 0.3)
         // headline words reveal via RevealText (delay 0.45)
         .fromTo('.hero__subhead', { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.8 }, 0.95)
@@ -31,7 +54,17 @@ export function Hero() {
           { autoAlpha: 0, y: 10 },
           { autoAlpha: 1, y: 0, duration: 0.7, stagger: 0.1 },
           1.4,
-        );
+        )
+        .fromTo('.hero__cue', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.8 }, 1.6);
+
+      // scroll cue retires after the first meaningful scroll
+      const onCueScroll = () => {
+        if (window.scrollY > 90) {
+          document.querySelector('.hero__cue')?.classList.add('is-hidden');
+          window.removeEventListener('scroll', onCueScroll);
+        }
+      };
+      window.addEventListener('scroll', onCueScroll, { passive: true });
 
       // Gentle depth on scroll — media sinks slightly slower than the page.
       gsap.to('.hero__media-inner', {
@@ -44,20 +77,30 @@ export function Hero() {
       if (hasFinePointer()) {
         const x = gsap.quickTo('.hero__media-light', 'x', { duration: 1.6, ease: 'power3.out' });
         const y = gsap.quickTo('.hero__media-light', 'y', { duration: 1.6, ease: 'power3.out' });
+        const imgX = gsap.quickTo('.hero__frame', 'x', { duration: 1.8, ease: 'power3.out' });
+        const scrimX = gsap.quickTo('.hero__media-scrim', 'x', { duration: 2, ease: 'power3.out' });
         const onMove = (e: PointerEvent) => {
-          x((e.clientX / window.innerWidth - 0.5) * 60);
-          y((e.clientY / window.innerHeight - 0.5) * 40);
+          const nx = e.clientX / window.innerWidth - 0.5;
+          const ny = e.clientY / window.innerHeight - 0.5;
+          x(nx * 60);
+          y(ny * 40);
+          imgX(nx * -10);
+          scrimX(nx * 8);
         };
         window.addEventListener('pointermove', onMove, { passive: true });
-        return () => window.removeEventListener('pointermove', onMove);
+        return () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('scroll', onCueScroll);
+        };
       }
+      return () => window.removeEventListener('scroll', onCueScroll);
     }, root);
 
     return () => ctx.revert();
   }, []);
 
   return (
-    <section className="hero" id="top" ref={ref} aria-label="TMRD Innovation Week">
+    <section className="hero" id="top" ref={ref} aria-label="TMRD Innovation Week" data-atmosphere="hero">
       <div className="container hero__grid">
         <div className="hero__content">
           <p className="eyebrow hero__eyebrow">{site.eyebrowDate}</p>
@@ -84,12 +127,15 @@ export function Hero() {
         <div className="hero__media" aria-hidden="false">
           <div className="hero__media-inner">
             <MediaFrame entry={media.heroDesktop} fill priority className="hero__frame" />
+            <div className="hero__media-scrim" aria-hidden="true" />
             <div className="hero__media-light" aria-hidden="true" />
             <ConnectionArcs className="hero__arcs" drawOnMount delay={0.9} />
             <div className="hero__media-reflection" aria-hidden="true" />
           </div>
         </div>
       </div>
+
+      <p className="hero__cue" aria-hidden="true">Scroll to explore</p>
 
       <div className="hero__strap" aria-label="Five days, five tracks, one district">
         <div className="container hero__strap-inner">

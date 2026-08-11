@@ -17,7 +17,7 @@ export function People() {
   const debug = mediaDebugEnabled();
 
   return (
-    <section className="section people" id="speakers" ref={ref}>
+    <section className="section people" id="speakers" ref={ref} data-atmosphere="people">
       <div className="container">
         <div className="section-head">
           <p className="eyebrow" data-reveal="0">{people.eyebrow}</p>
@@ -32,8 +32,8 @@ export function People() {
               data-reveal={i}
               key={slot.mediaKey}
             >
-              <div className="speaker__portrait">
-                <MediaFrame entry={media[slot.mediaKey]} fill overlay="soft" />
+              <div className="speaker__portrait" data-mask-y>
+                <MediaFrame entry={media[slot.mediaKey]} fill overlay="strong" />
                 <div className="speaker__caption">
                   <p className="speaker__category">{slot.category}</p>
                   <p className="speaker__announce">{people.announcement}</p>

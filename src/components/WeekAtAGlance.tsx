@@ -19,6 +19,7 @@ export function WeekAtAGlance() {
   const dirRef = useRef(1);
   const tablistRef = useRef<HTMLDivElement>(null);
   const glowRef = useRef<HTMLSpanElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const timer = useRef<number>();
 
   const select = (i: number) => {
@@ -38,16 +39,20 @@ export function WeekAtAGlance() {
     return () => window.clearTimeout(timer.current);
   }, [active, shown]);
 
-  // The gradient underline follows the active date.
+  // The gradient underline follows the active date, and the panel's
+  // descending light stays connected to it.
   useEffect(() => {
     const tablist = tablistRef.current;
     const glowEl = glowRef.current;
+    const panel = panelRef.current;
     if (!tablist || !glowEl) return;
     const position = () => {
       const tab = tablist.querySelectorAll<HTMLElement>('[role="tab"]')[active];
       if (!tab) return;
       glowEl.style.transform = `translateX(${tab.offsetLeft}px)`;
       glowEl.style.width = `${tab.offsetWidth}px`;
+      panel?.style.setProperty('--tab-x', `${tab.offsetLeft}px`);
+      panel?.style.setProperty('--tab-w', `${tab.offsetWidth}px`);
     };
     position();
     window.addEventListener('resize', position);
@@ -72,7 +77,7 @@ export function WeekAtAGlance() {
   const day = schedule.days[shown];
 
   return (
-    <section className="section week" id="schedule" ref={ref}>
+    <section className="section week" id="schedule" ref={ref} data-atmosphere="week">
       <div className="container">
         <div className="section-head">
           <p className="eyebrow" data-reveal="0">{schedule.eyebrow}</p>
@@ -112,7 +117,11 @@ export function WeekAtAGlance() {
           role="tabpanel"
           aria-labelledby={`day-tab-${schedule.days[active].id}`}
           className="week__panel"
+          ref={panelRef}
         >
+          <p className="visually-hidden" role="status">
+            Showing {day.label}: {day.events.length} events
+          </p>
           <div
             className="week__events"
             data-stage={stage}
@@ -121,7 +130,7 @@ export function WeekAtAGlance() {
           >
             {day.events.map((event, i) => (
               <article
-                className={`event glow-card accent-${trackAccent(event.trackId)}`}
+                className={`event glow-card accent-${trackAccent(event.trackId)}${event.featured ? ' event--featured' : ''}`}
                 style={{ '--i': i } as React.CSSProperties}
                 key={event.title}
               >

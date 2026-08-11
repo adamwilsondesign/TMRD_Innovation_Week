@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ScrollTrigger } from '../lib/gsap';
 import { nav } from '../data/site';
 import { scrollToId, startScroll, stopScroll } from '../lib/scroll';
 import { Logo } from './Logo';
@@ -6,8 +7,11 @@ import { Logo } from './Logo';
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const navListRef = useRef<HTMLUListElement>(null);
+  const indicatorRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     let raf = 0;
@@ -25,6 +29,48 @@ export function Header() {
       if (raf) cancelAnimationFrame(raf);
     };
   }, []);
+
+  // Active-section detection drives the sliding nav indicator.
+  useEffect(() => {
+    const triggers: ScrollTrigger[] = [];
+    nav.forEach((item) => {
+      const el = document.querySelector(item.href);
+      if (!el) return;
+      triggers.push(
+        ScrollTrigger.create({
+          trigger: el,
+          start: 'top 45%',
+          end: 'bottom 45%',
+          onEnter: () => setActiveSection(item.href),
+          onEnterBack: () => setActiveSection(item.href),
+          onLeave: () => setActiveSection((cur) => (cur === item.href ? null : cur)),
+          onLeaveBack: () => setActiveSection((cur) => (cur === item.href ? null : cur)),
+        }),
+      );
+    });
+    return () => triggers.forEach((t) => t.kill());
+  }, []);
+
+  useEffect(() => {
+    const list = navListRef.current;
+    const ind = indicatorRef.current;
+    if (!list || !ind) return;
+    const position = () => {
+      const link = activeSection
+        ? list.querySelector<HTMLElement>(`a[href="${activeSection}"]`)
+        : null;
+      if (!link) {
+        ind.classList.remove('is-visible');
+        return;
+      }
+      ind.style.transform = `translateX(${link.offsetLeft + 14}px)`;
+      ind.style.width = `${link.offsetWidth - 28}px`;
+      ind.classList.add('is-visible');
+    };
+    position();
+    window.addEventListener('resize', position);
+    return () => window.removeEventListener('resize', position);
+  }, [activeSection]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -86,14 +132,20 @@ export function Header() {
         </a>
 
         <nav className="header__nav" aria-label="Primary">
-          <ul>
+          <ul ref={navListRef}>
             {nav.map((item) => (
               <li key={item.label}>
-                <a href={item.href} onClick={(e) => onNav(e, item.href)}>
+                <a
+                  href={item.href}
+                  onClick={(e) => onNav(e, item.href)}
+                  className={activeSection === item.href ? 'is-active' : undefined}
+                  aria-current={activeSection === item.href ? 'true' : undefined}
+                >
                   {item.label}
                 </a>
               </li>
             ))}
+            <span className="nav-indicator" ref={indicatorRef} aria-hidden="true" />
           </ul>
         </nav>
 

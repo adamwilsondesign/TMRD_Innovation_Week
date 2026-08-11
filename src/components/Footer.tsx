@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { footer, site } from '../data/site';
+import { useReveal } from '../lib/useReveal';
 import { Logo } from './Logo';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -17,6 +18,7 @@ const anchorFor = (label: string): string => {
 };
 
 export function Footer() {
+  const ref = useReveal<HTMLElement>();
   const [email, setEmail] = useState('');
   const [state, setState] = useState<'idle' | 'error' | 'success'>('idle');
 
@@ -30,10 +32,10 @@ export function Footer() {
   };
 
   return (
-    <footer className="footer">
+    <footer className="footer" ref={ref}>
       <div className="container-wide">
         <div className="footer__grid">
-          <div className="footer__brand">
+          <div className="footer__brand" data-reveal="0">
             <Logo />
             <p className="footer__blurb">{footer.blurb}</p>
             <a className="footer__tmrd-link" href={site.tmrdWebsiteUrl}>
@@ -51,8 +53,8 @@ export function Footer() {
             </ul>
           </div>
 
-          {footer.columns.map((col) => (
-            <nav className="footer__col" key={col.title} aria-label={col.title}>
+          {footer.columns.map((col, i) => (
+            <nav className="footer__col" key={col.title} aria-label={col.title} data-reveal={i + 1}>
               <h3 className="footer__col-title">{col.title}</h3>
               <ul>
                 {col.links.map((link) => (
@@ -64,7 +66,7 @@ export function Footer() {
             </nav>
           ))}
 
-          <div className="footer__newsletter">
+          <div className="footer__newsletter" data-reveal="5">
             <h3 className="footer__col-title">{footer.newsletter.title}</h3>
             <p>{footer.newsletter.body}</p>
             {state === 'success' ? (

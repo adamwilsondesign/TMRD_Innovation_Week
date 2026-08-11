@@ -16,6 +16,7 @@ import { Footer } from './components/Footer';
 import { AmbientField } from './components/motion/AmbientField';
 import { CursorLight } from './components/motion/CursorLight';
 import { ScrollProgress } from './components/motion/ScrollProgress';
+import { SectionAtmosphere } from './components/motion/SectionAtmosphere';
 
 const ReferenceOverlay = import.meta.env.DEV
   ? lazy(() =>
@@ -48,6 +49,7 @@ export default function App() {
         Skip to content
       </a>
       <AmbientField />
+      <SectionAtmosphere />
       <CursorLight />
       <ScrollProgress />
       <Header />

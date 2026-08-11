@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { clamp, lerp, prefersReducedMotion } from '../../lib/motion-utils';
+import { atmosphereTarget } from '../../lib/atmosphere';
 
 interface Blob {
   bx: number; // base position, viewport fractions
@@ -44,7 +45,7 @@ export function AmbientField() {
 
     const reduced = prefersReducedMotion();
     const small = window.innerWidth < 768;
-    const blobs = small ? BLOBS.slice(0, 3) : BLOBS;
+    const blobs = (small ? BLOBS.slice(0, 3) : BLOBS).map((b) => ({ ...b }));
 
     let w = 0;
     let h = 0;
@@ -111,6 +112,9 @@ export function AmbientField() {
     const FRAME = 1000 / 30;
     let hidden = document.hidden;
 
+    // section-atmosphere easing (~1.5s to settle at 30fps)
+    const ATMO_LERP = 0.055;
+
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
       const dt = now - last;
@@ -126,6 +130,20 @@ export function AmbientField() {
       const sy = window.scrollY;
       scrollVel = lerp(scrollVel, clamp((sy - lastScroll) / 18, -8, 8), 0.12);
       lastScroll = sy;
+
+      // drift the two primary fields toward the active section's accent
+      // state; scroll velocity adds a touch of intensity while moving.
+      const velBoost = Math.min(Math.abs(scrollVel) * 0.004, 0.03);
+      const g = blobs[0];
+      const bl = blobs[1];
+      if (g && bl) {
+        g.bx = lerp(g.bx, atmosphereTarget.gx, ATMO_LERP);
+        g.by = lerp(g.by, atmosphereTarget.gy, ATMO_LERP);
+        g.alpha = lerp(g.alpha, atmosphereTarget.ga + velBoost, ATMO_LERP);
+        bl.bx = lerp(bl.bx, atmosphereTarget.bx, ATMO_LERP);
+        bl.by = lerp(bl.by, atmosphereTarget.by, ATMO_LERP);
+        bl.alpha = lerp(bl.alpha, atmosphereTarget.ba + velBoost, ATMO_LERP);
+      }
 
       draw(now / 1000);
     };

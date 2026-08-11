@@ -37,7 +37,7 @@ export function BuiltOnEachOther() {
   }, []);
 
   return (
-    <section className="section built" id="about" ref={ref}>
+    <section className="section built" id="about" ref={ref} data-atmosphere="built">
       <div className="container">
         <div className="section-head">
           <p className="eyebrow" data-reveal="0">{pillars.eyebrow}</p>

@@ -37,18 +37,19 @@ export function MagneticButton({ children, variant = 'primary', className, ...re
     const lxTo = gsap.quickTo(label, 'x', { duration: 0.45, ease: 'power3.out' });
     const lyTo = gsap.quickTo(label, 'y', { duration: 0.45, ease: 'power3.out' });
 
+    const limit = (v: number, max: number) => Math.max(-max, Math.min(max, v));
     const onMove = (e: PointerEvent) => {
       const r = el.getBoundingClientRect();
       const dx = e.clientX - (r.left + r.width / 2);
       const dy = e.clientY - (r.top + r.height / 2);
-      xTo(dx * 0.22);
-      yTo(dy * 0.3);
-      lxTo(dx * 0.1);
-      lyTo(dy * 0.14);
+      xTo(limit(dx * 0.2, 9));
+      yTo(limit(dy * 0.28, 8));
+      lxTo(limit(dx * 0.09, 5));
+      lyTo(limit(dy * 0.12, 4));
     };
     const onLeave = () => {
-      gsap.to(el, { x: 0, y: 0, duration: 0.7, ease: 'elastic.out(1, 0.45)' });
-      gsap.to(label, { x: 0, y: 0, duration: 0.7, ease: 'elastic.out(1, 0.45)' });
+      gsap.to(el, { x: 0, y: 0, duration: 0.6, ease: 'back.out(1.6)' });
+      gsap.to(label, { x: 0, y: 0, duration: 0.6, ease: 'back.out(1.6)' });
     };
 
     el.addEventListener('pointermove', onMove, { passive: true });
