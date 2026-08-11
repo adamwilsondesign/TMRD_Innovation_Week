@@ -41,7 +41,7 @@ export function District() {
     if (!root) return;
     const mm = gsap.matchMedia();
 
-    mm.add('(min-width: 1081px) and (prefers-reduced-motion: no-preference)', () => {
+    mm.add('(min-width: 1081px) and (min-height: 860px) and (prefers-reduced-motion: no-preference)', () => {
       setPinned(true);
       const path = pathRef.current;
       const traveller = travellerRef.current;
@@ -75,11 +75,16 @@ export function District() {
         if (!hoverRef.current) setActive(idx);
       };
 
+      // Trigger and pin the same element so the pin spacer doesn't skew the
+      // start position: the story begins only once 100% of the composition
+      // (heading, all four locations, and the aerial) is on screen.
+      const pinEl = root.querySelector<HTMLElement>('.container')!;
       const st = ScrollTrigger.create({
-        trigger: root,
-        start: 'top top',
-        end: '+=150%',
-        pin: root.querySelector<HTMLElement>('.container'),
+        trigger: pinEl,
+        start: 'bottom bottom',
+        end: '+=140%',
+        pin: pinEl,
+        anticipatePin: 1,
         scrub: true,
         onUpdate: (self) => applyProgress(self.progress),
       });
@@ -148,10 +153,12 @@ export function District() {
               <RevealText as="h2" className="h2" lines={district.headline} gradientLine={1} />
               <p className="lead" data-reveal="1">{district.body}</p>
             </div>
+            {/* no per-element scroll reveals inside the pinned composition —
+                they must be fully settled before the story begins */}
             {!isMobile && (
               <>
-                <div data-reveal="2">{list}</div>
-                <div className="district__cta" data-reveal="3">
+                <div>{list}</div>
+                <div className="district__cta">
                   <MagneticButton variant="ghost" href="#district">
                     {district.cta}
                   </MagneticButton>
@@ -162,6 +169,7 @@ export function District() {
 
           <div className="district__viz" data-reveal="1">
             <MediaFrame entry={media[district.mediaKey]} fill />
+            <div className="district__viz-scrim" aria-hidden="true" />
             <svg
               className="district__overlay"
               viewBox={`0 0 ${VW} ${VH}`}
@@ -186,7 +194,7 @@ export function District() {
               />
 
               {!reduced && (
-                <circle ref={travellerRef} className="district__traveller" r="4" fill="#55DE82">
+                <circle ref={travellerRef} className="district__traveller" r="5.5" fill="#55DE82">
                   {!pinned && <animateMotion dur="14s" repeatCount="indefinite" path={pathD} />}
                 </circle>
               )}
@@ -201,10 +209,10 @@ export function District() {
                     onMouseLeave={releaseOverride}
                     style={{ pointerEvents: 'all' }}
                   >
-                    <circle className="district__node-pulse" cx={p.x} cy={p.y} r="16" />
-                    <circle className="district__node-ring" cx={p.x} cy={p.y} r="13" />
-                    <circle className="district__node-core" cx={p.x} cy={p.y} r="5" />
-                    <text x={p.x + 22} y={p.y + 5} className="district__node-num">
+                    <circle className="district__node-pulse" cx={p.x} cy={p.y} r="24" />
+                    <circle className="district__node-ring" cx={p.x} cy={p.y} r="18" />
+                    <circle className="district__node-core" cx={p.x} cy={p.y} r="7.5" />
+                    <text x={p.x + 30} y={p.y + 6} className="district__node-num">
                       {i + 1}
                     </text>
                   </g>

@@ -29,21 +29,29 @@ export function Hero() {
       )
         .fromTo(
           '.hero__media-inner',
-          { clipPath: 'inset(0% 0% 0% 100% round 20px 0 0 20px)', autoAlpha: 0.4 },
+          { clipPath: 'inset(0% 0% 0% 100% round 20px 0 0 20px)', autoAlpha: 0.3 },
           {
             clipPath: 'inset(0% 0% 0% 0% round 20px 0 0 20px)',
             autoAlpha: 1,
-            duration: 1.5,
-            ease: 'power3.inOut',
+            duration: 1.7,
+            ease: 'power4.inOut',
           },
-          0.25,
+          0.2,
         )
         .fromTo(
           '.hero__frame img, .hero__frame .media-frame__fallback',
-          { scale: 1.045 },
-          { scale: 1, duration: 2.4, ease: 'power2.out' },
-          0.25,
+          { scale: 1.14, x: 60 },
+          { scale: 1, x: 0, duration: 2.8, ease: 'power3.out' },
+          0.2,
         )
+        // one cinematic light sweep across the artwork as it lands
+        .fromTo(
+          '.hero__media-sweep',
+          { xPercent: -130, autoAlpha: 1 },
+          { xPercent: 130, duration: 1.5, ease: 'power2.inOut' },
+          0.9,
+        )
+        .to('.hero__media-sweep', { autoAlpha: 0, duration: 0.3 }, 2.3)
         .fromTo('.hero__eyebrow', { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.7 }, 0.3)
         // headline words reveal via RevealText (delay 0.45)
         .fromTo('.hero__subhead', { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.8 }, 0.95)
@@ -66,11 +74,27 @@ export function Hero() {
       };
       window.addEventListener('scroll', onCueScroll, { passive: true });
 
-      // Gentle depth on scroll — media sinks slightly slower than the page.
+      // Depth on scroll — media sinks slower than the page while the
+      // artwork inside counter-zooms; content lifts away slightly faster.
       gsap.to('.hero__media-inner', {
-        yPercent: 8,
+        yPercent: 12,
         ease: 'none',
         scrollTrigger: { trigger: root, start: 'top top', end: 'bottom top', scrub: true },
+      });
+      gsap.fromTo(
+        '.hero__frame',
+        { scale: 1 },
+        {
+          scale: 1.08,
+          ease: 'none',
+          scrollTrigger: { trigger: root, start: 'top top', end: 'bottom top', scrub: true },
+        },
+      );
+      gsap.to('.hero__content', {
+        yPercent: -10,
+        autoAlpha: 0.35,
+        ease: 'none',
+        scrollTrigger: { trigger: root, start: '25% top', end: 'bottom top', scrub: true },
       });
 
       // Restrained pointer response on the media light only.
@@ -127,6 +151,7 @@ export function Hero() {
         <div className="hero__media" aria-hidden="false">
           <div className="hero__media-inner">
             <MediaFrame entry={media.heroDesktop} fill priority className="hero__frame" />
+            <div className="hero__media-sweep" aria-hidden="true" />
             <div className="hero__media-scrim" aria-hidden="true" />
             <div className="hero__media-light" aria-hidden="true" />
             <ConnectionArcs className="hero__arcs" drawOnMount delay={0.9} />
